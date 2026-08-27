@@ -1,0 +1,144 @@
+.mission-vision-section {
+  position: relative;
+  width: 100%;
+  background-color: #0a0a0a;
+  background-image: url('/images/mission-vision-bg.png');
+  background-repeat: no-repeat;
+  background-position: 12% center;
+  background-size: auto 75%;
+  color: #ffffff;
+  padding: 6rem 0rem;
+  overflow: hidden;
+  font-family: var(--font-primary, 'Montserrat', sans-serif);
+  box-sizing: border-box;
+  /* Thin white divider line at the top */
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.mission-vision-layout {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: center;
+  gap: 3.5rem;
+  /* max-width: 1650px; */
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  z-index: 10;
+  box-sizing: border-box;
+}
+
+/* SVG Diamond Video Mask Column (Locked position & no extra space) */
+.mission-vision-svg-col {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Increased Height & Constant Locked Width */
+.mission-vision-svg {
+  width: 720px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.85));
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Text Content Column */
+.mission-vision-text-col {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2.75rem;
+  padding-right: 1.5rem;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+}
+
+/* Synchronized Scroll Reveal Animation */
+.reveal-element {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal-element.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.mission-vision-heading {
+  font-size: clamp(2.1rem, 3.6vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1.15;
+  color: #ffffff;
+  margin: 0 0 1.15rem 0;
+  letter-spacing: -0.015em;
+}
+
+.mission-vision-paragraph {
+  font-size: clamp(0.95rem, 1.15vw, 1.12rem);
+  font-weight: 300;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+  letter-spacing: 0.015em;
+}
+
+/* Mobile & Tablet Responsiveness */
+@media (max-width: 1024px) {
+  .mission-vision-section {
+    padding: 4.5rem 1.5rem;
+    background-position: center;
+    background-size: auto 60%;
+  }
+
+  .mission-vision-layout {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+  }
+
+  .mission-vision-svg-col {
+    justify-content: center;
+  }
+
+  .mission-vision-svg {
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .mission-vision-text-col {
+    padding-right: 0;
+    text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .mission-vision-section {
+    padding: 3.5rem 1.25rem;
+  }
+
+  .mission-vision-heading {
+    font-size: 1.85rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .mission-vision-paragraph {
+    font-size: 0.92rem;
+    line-height: 1.65;
+  }
+
+  .mission-vision-svg {
+    max-width: 350px;
+  }
+}
