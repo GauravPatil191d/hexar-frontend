@@ -2,22 +2,16 @@
 
 import React, { useEffect, useRef } from "react";
 import "./style.css";
-
-const ribbonItems = [
-  "Hair Assets",
-  "Animation",
-  "3D Modeling",
-  "VFX",
-  "Character Rigging",
-  "Game Assets",
-  "Concept Art",
-  "Unreal Engine",
-  "Environment Design",
-  "3D Props",
-];
+import { useRibbon } from "@/context/RibbonContext";
 
 export default function RibbonContainer() {
+  const { ribbon, isLoading, getRibbon } = useRibbon();
   const ribbonRef = useRef<HTMLElement | null>(null);
+
+  // Fetch on mount if not already loaded
+  useEffect(() => {
+    getRibbon();
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -37,6 +31,26 @@ export default function RibbonContainer() {
 
     return () => observer.disconnect();
   }, []);
+
+  // Split ribbon text into individual items (comma or pipe separated),
+  // or fall back to a default list if no data
+  const ribbonItems: string[] = ribbon?.ribbon_text
+    ? ribbon.ribbon_text
+        .split(/[,|]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+
+  if (isLoading || ribbonItems.length === 0) {
+    // Render an empty ribbon while loading / no data
+    return (
+      <section
+        ref={ribbonRef}
+        className="ribbon-container reveal-element"
+        aria-label="Services Showcase"
+      />
+    );
+  }
 
   return (
     <section

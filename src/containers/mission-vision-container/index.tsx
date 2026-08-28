@@ -2,9 +2,16 @@
 
 import React, { useEffect, useRef } from "react";
 import "./style.css";
+import { useMissionVision } from "@/context/MissionVisionContext";
 
 export default function MissionVisionContainer() {
+  const { missionVision, loading, getMissionVision } = useMissionVision();
   const sectionRef = useRef<HTMLElement | null>(null);
+
+  // Fetch on mount if not already loaded
+  useEffect(() => {
+    getMissionVision();
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -22,7 +29,17 @@ export default function MissionVisionContainer() {
     elements?.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
-  }, []);
+  }, [missionVision]); // re-run when data loads
+
+  const videoSrc = missionVision?.background_video ?? "/videos/COD-1-min.mp4";
+  const missionTitle = missionVision?.mission_title ?? "Our Mission";
+  const missionDesc =
+    missionVision?.mission_description ??
+    "Our mission is to provide cutting-edge 3D arts solutions with exceptional quality and innovation. We bring creativity to life through immersive visuals, pushing artistic boundaries.";
+  const visionTitle = missionVision?.vision_title ?? "Our Vision";
+  const visionDesc =
+    missionVision?.vision_description ??
+    "Inspire and empower through transformative 3D arts. We aim to be a trusted partner known for our visionary approach, technical expertise, and commitment to excellence. By embracing creativity and staying at the forefront of technology, we shape the future and leave a lasting impact in the industry.";
 
   return (
     <section
@@ -59,7 +76,7 @@ export default function MissionVisionContainer() {
 
             <foreignObject x="0" y="0" width="1200" height="1200" mask="url(#diamondMask)">
               <video
-                src="/videos/COD-1-min.mp4"
+                src={videoSrc}
                 autoPlay
                 loop
                 muted
@@ -75,24 +92,14 @@ export default function MissionVisionContainer() {
         <div className="mission-vision-text-col">
           {/* Our Mission */}
           <div className="reveal-element">
-            <h2 className="mission-vision-heading">Our Mission</h2>
-            <p className="mission-vision-paragraph">
-              Our mission is to provide cutting-edge 3D arts solutions with
-              exceptional quality and innovation. We bring creativity to life
-              through immersive visuals, pushing artistic boundaries.
-            </p>
+            <h2 className="mission-vision-heading">{missionTitle}</h2>
+            <p className="mission-vision-paragraph">{missionDesc}</p>
           </div>
 
           {/* Our Vision */}
           <div className="reveal-element">
-            <h2 className="mission-vision-heading">Our Vision</h2>
-            <p className="mission-vision-paragraph">
-              Inspire and empower through transformative 3D arts. We aim to be a
-              trusted partner known for our visionary approach, technical
-              expertise, and commitment to excellence. By embracing creativity
-              and staying at the forefront of technology, we shape the future and
-              leave a lasting impact in the industry.
-            </p>
+            <h2 className="mission-vision-heading">{visionTitle}</h2>
+            <p className="mission-vision-paragraph">{visionDesc}</p>
           </div>
         </div>
       </div>

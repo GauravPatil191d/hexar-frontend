@@ -1,105 +1,147 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
+
 import "./style.css";
 
-interface BannerSlide {
-  id: number;
-  title: string;
-  subtitle: string;
-  videoSrc: string;
-  imageSrc: string;
-  altText: string;
-}
+import { useBanner } from "@/context/BannerContext";
 
-const bannerSlides: BannerSlide[] = [
-  {
-    id: 1,
-    title: "Call of Duty: Modern Warfare",
-    subtitle: "— Take A Look",
-    videoSrc: "/videos/COD-1-min.mp4",
-    imageSrc: "/images/cod-img.png",
-    altText: "Call of Duty Character",
-  },
-  {
-    id: 2,
-    title: "Counter-Strike: Global Offensive",
-    subtitle: "— Take A Look",
-    videoSrc: "/videos/CSGO-1-min.mp4",
-    imageSrc: "/images/cs-g0.png",
-    altText: "CSGO Character",
-  },
-  {
-    id: 3,
-    title: "Elden Ring: Shadow of the Erdtree",
-    subtitle: "— Take A Look",
-    videoSrc: "/videos/ELDEN-1-min(2nd).mp4",
-    imageSrc: "/images/eldeb-ring.png",
-    altText: "Elden Ring Character",
-  },
-];
-
-const AUTO_SCROLL_DURATION = 7000; // 7 seconds auto-scroll
+const AUTO_SCROLL_DURATION = 7000;
 
 export default function BannerContainer() {
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [startX, setStartX] = useState<number>(0);
-  const [animKey, setAnimKey] = useState<number>(0);
+  const { banners, isLoading } = useBanner();
 
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const [currentIndex, setCurrentIndex] =
+    useState<number>(0);
 
-  // Navigation handlers
+  const [isDragging, setIsDragging] =
+    useState<boolean>(false);
+
+  const [startX, setStartX] =
+    useState<number>(0);
+
+  const [animKey, setAnimKey] =
+    useState<number>(0);
+
+  const videoRefs =
+    useRef<(HTMLVideoElement | null)[]>([]);
+
   const goToNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % bannerSlides.length);
+    if (banners.length === 0) return;
+
+    setCurrentIndex(
+      (prev) =>
+        (prev + 1) % banners.length,
+    );
+
     setAnimKey((prev) => prev + 1);
-  }, []);
+  }, [banners.length]);
 
   const goToPrev = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + bannerSlides.length) % bannerSlides.length);
+    if (banners.length === 0) return;
+
+    setCurrentIndex(
+      (prev) =>
+        (prev - 1 + banners.length) %
+        banners.length,
+    );
+
     setAnimKey((prev) => prev + 1);
-  }, []);
+  }, [banners.length]);
 
   const goToSlide = (index: number) => {
-    if (index !== currentIndex) {
-      setCurrentIndex(index);
-      setAnimKey((prev) => prev + 1);
-    }
+    if (index === currentIndex) return;
+
+    setCurrentIndex(index);
+
+    setAnimKey((prev) => prev + 1);
   };
 
-  // 7-second Auto-scroll timer
   useEffect(() => {
+    setCurrentIndex(0);
+  }, [banners.length]);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+
     const timer = setInterval(() => {
       goToNext();
     }, AUTO_SCROLL_DURATION);
 
-    return () => clearInterval(timer);
-  }, [goToNext]);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [
+    goToNext,
+    banners.length,
+  ]);
 
-  // Sync active background video playback
   useEffect(() => {
-    videoRefs.current.forEach((video, idx) => {
-      if (video) {
-        if (idx === currentIndex) {
-          video.currentTime = 0;
-          video.play().catch(() => {});
+    videoRefs.current.forEach(
+      (video, index) => {
+        if (!video) return;
+
+        if (index === currentIndex) {
+          const startVideo = async () => {
+            try {
+              video.currentTime = 0;
+
+              await video.play();
+            } catch (error) {
+              console.error(
+                "Unable to play video:",
+                banners[index]?.banner_title,
+                error,
+              );
+            }
+          };
+
+          if (video.readyState >= 2) {
+            startVideo();
+          } else {
+            video.addEventListener(
+              "canplay",
+              startVideo,
+              {
+                once: true,
+              },
+            );
+          }
         } else {
           video.pause();
-        }
-      }
-    });
-  }, [currentIndex]);
 
-  // Mouse Drag Handlers
-  const handleMouseDown = (e: React.MouseEvent) => {
+          video.currentTime = 0;
+        }
+      },
+    );
+  }, [
+    currentIndex,
+    banners,
+  ]);
+
+  const handleMouseDown = (
+    e: React.MouseEvent,
+  ) => {
     setIsDragging(true);
+
     setStartX(e.clientX);
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseUp = (
+    e: React.MouseEvent,
+  ) => {
     if (!isDragging) return;
+
     setIsDragging(false);
-    const diffX = e.clientX - startX;
+
+    const diffX =
+      e.clientX - startX;
+
     if (diffX < -50) {
       goToNext();
     } else if (diffX > 50) {
@@ -113,17 +155,29 @@ export default function BannerContainer() {
     }
   };
 
-  // Touch Swipe Handlers for Mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = (
+    e: React.TouchEvent,
+  ) => {
     setIsDragging(true);
-    setStartX(e.touches[0].clientX);
+
+    setStartX(
+      e.touches[0].clientX,
+    );
   };
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchEnd = (
+    e: React.TouchEvent,
+  ) => {
     if (!isDragging) return;
+
     setIsDragging(false);
-    const endX = e.changedTouches[0].clientX;
-    const diffX = endX - startX;
+
+    const endX =
+      e.changedTouches[0].clientX;
+
+    const diffX =
+      endX - startX;
+
     if (diffX < -40) {
       goToNext();
     } else if (diffX > 40) {
@@ -131,18 +185,81 @@ export default function BannerContainer() {
     }
   };
 
-  const currentSlide = bannerSlides[currentIndex];
+  if (isLoading) {
+    return (
+      <div
+        className="banner-container"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div className="banner-logo-wrapper">
+          <img
+            src="/images/hexar-logo.png"
+            alt="HEXAR Studios Logo"
+            className="banner-logo"
+          />
+        </div>
+
+        <p
+          style={{
+            color: "#fff",
+            fontSize: "1.2rem",
+          }}
+        >
+          Loading...
+        </p>
+      </div>
+    );
+  }
+
+  if (banners.length === 0) {
+    return (
+      <div
+        className="banner-container"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div className="banner-logo-wrapper">
+          <img
+            src="/images/hexar-logo.png"
+            alt="HEXAR Studios Logo"
+            className="banner-logo"
+          />
+        </div>
+
+        <p
+          style={{
+            color: "#fff",
+            fontSize: "1.2rem",
+          }}
+        >
+          No banners available.
+        </p>
+      </div>
+    );
+  }
+
+  const currentSlide =
+    banners[currentIndex];
 
   return (
     <div
-      className={`banner-container ${isDragging ? "grabbing" : "grab"}`}
+      className={`banner-container ${isDragging
+          ? "grabbing"
+          : "grab"
+        }`}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Sticked Top Left Logo */}
       <div className="banner-logo-wrapper">
         <img
           src="/images/hexar-logo.png"
@@ -151,42 +268,60 @@ export default function BannerContainer() {
         />
       </div>
 
-      {/* Background Videos with high brightness */}
       <div className="banner-video-wrapper">
-        {bannerSlides.map((slide, index) => (
-          <video
-            key={slide.id}
-            ref={(el) => {
-              videoRefs.current[index] = el;
-            }}
-            src={slide.videoSrc}
-            className={`banner-video ${index === currentIndex ? "active" : ""}`}
-            loop
-            muted
-            playsInline
-          />
-        ))}
+        {banners.map(
+          (slide, index) => (
+            <video
+              key={
+                slide.banner_generated_id ??
+                index
+              }
+              ref={(element) => {
+                videoRefs.current[index] =
+                  element;
+              }}
+              src={slide.banner_video}
+              className={`banner-video ${index === currentIndex
+                  ? "active"
+                  : ""
+                }`}
+              preload="auto"
+              loop
+              muted
+              playsInline
+            />
+          ),
+        )}
       </div>
 
-      {/* Balanced Overlay for bright video visibility & text legibility */}
       <div className="banner-overlay" />
 
-      {/* Main Content Layout */}
       <div className="banner-content-container">
-        {/* Text Section (Middle on mobile, left on desktop) */}
-        <div key={`text-${animKey}`} className="banner-text-section banner-text-anim">
-          <h1 className="banner-title">{currentSlide.title}</h1>
+        <div
+          key={`text-${animKey}`}
+          className="
+            banner-text-section
+            banner-text-anim
+          "
+        >
+          <h1 className="banner-title">
+            {currentSlide.banner_title}
+          </h1>
 
           <div className="banner-subtitle-wrapper">
-            <div className="banner-subtitle">{currentSlide.subtitle}</div>
+            <div className="banner-subtitle">
+              {
+                currentSlide.banner_small_tag
+              }
+            </div>
 
-            {/* Prev/Next Buttons (Hidden on mobile) */}
             <div className="banner-controls">
               <button
                 type="button"
                 className="banner-nav-btn"
                 onClick={(e) => {
                   e.stopPropagation();
+
                   goToPrev();
                 }}
                 aria-label="Previous Slide"
@@ -201,6 +336,7 @@ export default function BannerContainer() {
                 className="banner-nav-btn"
                 onClick={(e) => {
                   e.stopPropagation();
+
                   goToNext();
                 }}
                 aria-label="Next Slide"
@@ -213,31 +349,39 @@ export default function BannerContainer() {
           </div>
         </div>
 
-        {/* Foreground Character Image (Very bottom on mobile, right on desktop) */}
         <div className="banner-image-section">
           <img
             key={`img-${animKey}`}
-            src={currentSlide.imageSrc}
-            alt={currentSlide.altText}
-            className="banner-fg-image anim-enter"
+            src={currentSlide.banner_image}
+            alt={currentSlide.banner_title}
+            className="
+              banner-fg-image
+              anim-enter
+            "
           />
         </div>
       </div>
 
-      {/* Navigation Dots */}
       <div className="banner-progress-dots">
-        {bannerSlides.map((_, idx) => (
-          <button
-            key={idx}
-            type="button"
-            className={`banner-dot ${idx === currentIndex ? "active" : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              goToSlide(idx);
-            }}
-            aria-label={`Go to slide ${idx + 1}`}
-          />
-        ))}
+        {banners.map(
+          (_, index) => (
+            <button
+              key={index}
+              type="button"
+              className={`banner-dot ${index === currentIndex
+                  ? "active"
+                  : ""
+                }`}
+              onClick={(e) => {
+                e.stopPropagation();
+
+                goToSlide(index);
+              }}
+              aria-label={`Go to slide ${index + 1
+                }`}
+            />
+          ),
+        )}
       </div>
     </div>
   );
