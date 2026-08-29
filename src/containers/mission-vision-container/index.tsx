@@ -5,8 +5,34 @@ import React, {
   useRef,
   useMemo,
 } from "react";
+
 import "./style.css";
+
 import { useMissionVision } from "@/context/MissionVisionContext";
+
+const getOptimizedCloudinaryVideoUrl = (
+  url: string,
+): string => {
+  if (!url) {
+    return "";
+  }
+
+  if (!url.includes("res.cloudinary.com")) {
+    return url;
+  }
+
+  if (
+    url.includes("/f_auto") ||
+    url.includes("/q_auto")
+  ) {
+    return url;
+  }
+
+  return url.replace(
+    "/video/upload/",
+    "/video/upload/f_auto,q_auto/",
+  );
+};
 
 export default function MissionVisionContainer() {
   const {
@@ -21,68 +47,90 @@ export default function MissionVisionContainer() {
   const videoRef =
     useRef<HTMLVideoElement | null>(null);
 
+  const hasFetched =
+    useRef(false);
+
+  const hasStartedVideo =
+    useRef(false);
+
+  /*
+   * Fetch Mission & Vision only once.
+   *
+   * We intentionally do not put getMissionVision
+   * in the dependency array because some context
+   * implementations recreate that function.
+   */
   useEffect(() => {
+    if (hasFetched.current) {
+      return;
+    }
+
+    hasFetched.current = true;
+
     getMissionVision();
-  }, [getMissionVision]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  /*
+   * Reveal animation.
+   */
   useEffect(() => {
-    const section = sectionRef.current;
+    const section =
+      sectionRef.current;
 
-    if (!section) return;
+    if (!section) {
+      return;
+    }
 
     const elements =
-      section.querySelectorAll(".reveal-element");
+      section.querySelectorAll(
+        ".reveal-element",
+      );
 
-    if (!elements.length) return;
+    if (!elements.length) {
+      return;
+    }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add(
-              "is-revealed",
-            );
+    const observer =
+      new IntersectionObserver(
+        (entries) => {
+          entries.forEach(
+            (entry) => {
+              if (
+                entry.isIntersecting
+              ) {
+                entry.target.classList.add(
+                  "is-revealed",
+                );
 
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      {
-        threshold: 0.15,
+                observer.unobserve(
+                  entry.target,
+                );
+              }
+            },
+          );
+        },
+        {
+          threshold: 0.15,
+        },
+      );
+
+    elements.forEach(
+      (element) => {
+        observer.observe(
+          element,
+        );
       },
     );
-
-    elements.forEach((element) => {
-      observer.observe(element);
-    });
 
     return () => {
       observer.disconnect();
     };
   }, [missionVision]);
 
-  const getOptimizedVideoUrl = (
-    url: string,
-  ): string => {
-    if (!url) return "";
-
-    if (!url.includes("res.cloudinary.com")) {
-      return url;
-    }
-
-    if (
-      url.includes("/f_auto") ||
-      url.includes("/q_auto")
-    ) {
-      return url;
-    }
-
-    return url.replace(
-      "/video/upload/",
-      "/video/upload/f_auto,q_auto/",
-    );
-  };
-
+  /*
+   * Cloudinary video URL.
+   */
   const videoSrc = useMemo(() => {
     const source =
       missionVision?.background_video;
@@ -91,8 +139,12 @@ export default function MissionVisionContainer() {
       return "/videos/COD-1-min.mp4";
     }
 
-    return getOptimizedVideoUrl(source);
-  }, [missionVision?.background_video]);
+    return getOptimizedCloudinaryVideoUrl(
+      source,
+    );
+  }, [
+    missionVision?.background_video,
+  ]);
 
   const missionTitle =
     missionVision?.mission_title ??
@@ -110,60 +162,78 @@ export default function MissionVisionContainer() {
     missionVision?.vision_description ??
     "Inspire and empower through transformative 3D arts. We aim to be a trusted partner known for our visionary approach, technical expertise, and commitment to excellence. By embracing creativity and staying at the forefront of technology, we shape the future and leave a lasting impact in the industry.";
 
+  /*
+   * Start the video when the section is
+   * approaching the viewport.
+   *
+   * The video plays only once.
+   */
   useEffect(() => {
-    const video = videoRef.current;
-    const section = sectionRef.current;
+    const video =
+      videoRef.current;
 
-    if (!video || !section) return;
+    const section =
+      sectionRef.current;
 
-    let started = false;
+    if (!video || !section) {
+      return;
+    }
 
-    const startVideo = () => {
-      if (started) return;
+    hasStartedVideo.current = false;
 
-      started = true;
-      video.load();
+    const startVideo =
+      async () => {
+        if (
+          hasStartedVideo.current
+        ) {
+          return;
+        }
 
-      const playVideo = async () => {
+        hasStartedVideo.current =
+          true;
+
         try {
           await video.play();
         } catch {
-          // Autoplay may be blocked by the browser.
+          /*
+           * Browser autoplay restrictions
+           * are safely ignored.
+           */
         }
       };
 
-      if (video.readyState >= 2) {
-        playVideo();
-      } else {
-        video.addEventListener(
-          "canplay",
-          playVideo,
-          { once: true },
-        );
-      }
-    };
+    const observer =
+      new IntersectionObserver(
+        (entries) => {
+          const entry =
+            entries[0];
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          startVideo();
-          observer.disconnect();
-        }
-      },
-      {
-        rootMargin: "500px 0px",
-        threshold: 0,
-      },
-    );
+          if (
+            entry?.isIntersecting
+          ) {
+            startVideo();
+
+            observer.disconnect();
+          }
+        },
+        {
+          root: null,
+          rootMargin:
+            "500px 0px",
+          threshold: 0,
+        },
+      );
 
     observer.observe(section);
 
     return () => {
       observer.disconnect();
-      video.pause();
     };
   }, [videoSrc]);
 
+  /*
+   * Loading state.
+   */
   if (loading) {
     return (
       <section
@@ -215,6 +285,7 @@ export default function MissionVisionContainer() {
       id="mission-vision"
     >
       <div className="mission-vision-layout">
+
         <div className="mission-vision-svg-col reveal-element">
           <svg
             width="100%"
@@ -225,6 +296,7 @@ export default function MissionVisionContainer() {
             preserveAspectRatio="xMidYMid slice"
           >
             <defs>
+
               <filter
                 id="roundedMask"
                 x="-10%"
@@ -322,8 +394,6 @@ export default function MissionVisionContainer() {
               <video
                 ref={videoRef}
                 src={videoSrc}
-                autoPlay
-                loop
                 muted
                 playsInline
                 preload="metadata"
@@ -335,6 +405,7 @@ export default function MissionVisionContainer() {
         </div>
 
         <div className="mission-vision-text-col">
+
           <div className="reveal-element">
             <h2 className="mission-vision-heading">
               {missionTitle}
@@ -354,6 +425,7 @@ export default function MissionVisionContainer() {
               {visionDesc}
             </p>
           </div>
+
         </div>
       </div>
     </section>
