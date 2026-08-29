@@ -8,35 +8,72 @@ import React, {
 } from "react";
 
 import "./style.css";
-
 import { useBanner } from "@/context/BannerContext";
 
 const AUTO_SCROLL_DURATION = 7000;
 
+const getOptimizedCloudinaryVideoUrl = (url: string): string => {
+  if (!url) return "";
+
+  if (!url.includes("res.cloudinary.com")) {
+    return url;
+  }
+
+  if (
+    url.includes("/f_auto") ||
+    url.includes("/q_auto")
+  ) {
+    return url;
+  }
+
+  return url.replace(
+    "/video/upload/",
+    "/video/upload/f_auto,q_auto/",
+  );
+};
+
+const getOptimizedCloudinaryImageUrl = (url: string): string => {
+  if (!url) return "";
+
+  if (!url.includes("res.cloudinary.com")) {
+    return url;
+  }
+
+  if (
+    url.includes("/f_auto") ||
+    url.includes("/q_auto")
+  ) {
+    return url;
+  }
+
+  return url.replace(
+    "/image/upload/",
+    "/image/upload/f_auto,q_auto/",
+  );
+};
+
+const preloadImage = (url: string) => {
+  if (!url) return;
+
+  const img = new Image();
+  img.src = getOptimizedCloudinaryImageUrl(url);
+};
+
 export default function BannerContainer() {
   const { banners, isLoading } = useBanner();
 
-  const [currentIndex, setCurrentIndex] =
-    useState<number>(0);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [startX, setStartX] = useState<number>(0);
+  const [animKey, setAnimKey] = useState<number>(0);
 
-  const [isDragging, setIsDragging] =
-    useState<boolean>(false);
-
-  const [startX, setStartX] =
-    useState<number>(0);
-
-  const [animKey, setAnimKey] =
-    useState<number>(0);
-
-  const videoRefs =
-    useRef<(HTMLVideoElement | null)[]>([]);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const goToNext = useCallback(() => {
     if (banners.length === 0) return;
 
     setCurrentIndex(
-      (prev) =>
-        (prev + 1) % banners.length,
+      (prev) => (prev + 1) % banners.length,
     );
 
     setAnimKey((prev) => prev + 1);
@@ -47,88 +84,117 @@ export default function BannerContainer() {
 
     setCurrentIndex(
       (prev) =>
-        (prev - 1 + banners.length) %
-        banners.length,
+        (prev - 1 + banners.length) % banners.length,
     );
 
     setAnimKey((prev) => prev + 1);
   }, [banners.length]);
 
   const goToSlide = (index: number) => {
-    if (index === currentIndex) return;
+    if (
+      index === currentIndex ||
+      index < 0 ||
+      index >= banners.length
+    ) {
+      return;
+    }
 
     setCurrentIndex(index);
-
     setAnimKey((prev) => prev + 1);
   };
 
   useEffect(() => {
-    setCurrentIndex(0);
+    if (banners.length === 0) {
+      setCurrentIndex(0);
+      return;
+    }
+
+    setCurrentIndex((prev) =>
+      prev >= banners.length ? 0 : prev,
+    );
   }, [banners.length]);
+
+  useEffect(() => {
+    if (banners.length === 0) return;
+
+    preloadImage(banners[0]?.banner_image);
+
+    if (banners.length > 1) {
+      preloadImage(banners[1]?.banner_image);
+    }
+  }, [banners]);
 
   useEffect(() => {
     if (banners.length <= 1) return;
 
-    const timer = setInterval(() => {
+    const nextIndex =
+      (currentIndex + 1) % banners.length;
+
+    preloadImage(
+      banners[nextIndex]?.banner_image,
+    );
+  }, [currentIndex, banners]);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+
+    const timer = window.setInterval(() => {
       goToNext();
     }, AUTO_SCROLL_DURATION);
 
     return () => {
-      clearInterval(timer);
+      window.clearInterval(timer);
     };
-  }, [
-    goToNext,
-    banners.length,
-  ]);
+  }, [goToNext, banners.length]);
 
   useEffect(() => {
-    videoRefs.current.forEach(
-      (video, index) => {
-        if (!video) return;
+    const videos = videoRefs.current;
 
-        if (index === currentIndex) {
-          const startVideo = async () => {
-            try {
-              video.currentTime = 0;
+    videos.forEach((video, index) => {
+      if (!video) return;
 
-              await video.play();
-            } catch (error) {
-              console.error(
-                "Unable to play video:",
-                banners[index]?.banner_title,
-                error,
-              );
-            }
-          };
-
-          if (video.readyState >= 2) {
-            startVideo();
-          } else {
-            video.addEventListener(
-              "canplay",
-              startVideo,
-              {
-                once: true,
-              },
-            );
+      if (index === currentIndex) {
+        const startVideo = async () => {
+          try {
+            video.currentTime = 0;
+            await video.play();
+          } catch {
+            // Autoplay may be blocked by the browser.
           }
-        } else {
-          video.pause();
+        };
 
-          video.currentTime = 0;
+        if (video.readyState >= 2) {
+          startVideo();
+        } else {
+          video.addEventListener(
+            "canplay",
+            startVideo,
+            { once: true },
+          );
         }
-      },
-    );
-  }, [
-    currentIndex,
-    banners,
-  ]);
+      } else {
+        video.pause();
+
+        try {
+          video.currentTime = 0;
+        } catch {
+          // Ignore unloaded video reset errors.
+        }
+      }
+    });
+
+    return () => {
+      videos.forEach((video) => {
+        if (!video) return;
+        video.pause();
+      });
+    };
+  }, [currentIndex, banners]);
 
   const handleMouseDown = (
     e: React.MouseEvent,
   ) => {
     setIsDragging(true);
-
     setStartX(e.clientX);
   };
 
@@ -139,8 +205,7 @@ export default function BannerContainer() {
 
     setIsDragging(false);
 
-    const diffX =
-      e.clientX - startX;
+    const diffX = e.clientX - startX;
 
     if (diffX < -50) {
       goToNext();
@@ -159,10 +224,7 @@ export default function BannerContainer() {
     e: React.TouchEvent,
   ) => {
     setIsDragging(true);
-
-    setStartX(
-      e.touches[0].clientX,
-    );
+    setStartX(e.touches[0].clientX);
   };
 
   const handleTouchEnd = (
@@ -172,11 +234,8 @@ export default function BannerContainer() {
 
     setIsDragging(false);
 
-    const endX =
-      e.changedTouches[0].clientX;
-
-    const diffX =
-      endX - startX;
+    const endX = e.changedTouches[0].clientX;
+    const diffX = endX - startX;
 
     if (diffX < -40) {
       goToNext();
@@ -245,15 +304,16 @@ export default function BannerContainer() {
     );
   }
 
-  const currentSlide =
-    banners[currentIndex];
+  const currentSlide = banners[currentIndex];
+
+  const nextIndex =
+    (currentIndex + 1) % banners.length;
 
   return (
     <div
-      className={`banner-container ${isDragging
-          ? "grabbing"
-          : "grab"
-        }`}
+      className={`banner-container ${
+        isDragging ? "grabbing" : "grab"
+      }`}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
@@ -269,29 +329,40 @@ export default function BannerContainer() {
       </div>
 
       <div className="banner-video-wrapper">
-        {banners.map(
-          (slide, index) => (
+        {banners.map((slide, index) => {
+          const isCurrent = index === currentIndex;
+          const isNext = index === nextIndex;
+
+          if (!isCurrent && !isNext) {
+            return null;
+          }
+
+          return (
             <video
               key={
                 slide.banner_generated_id ??
+                slide._id ??
                 index
               }
               ref={(element) => {
-                videoRefs.current[index] =
-                  element;
+                videoRefs.current[index] = element;
               }}
-              src={slide.banner_video}
-              className={`banner-video ${index === currentIndex
-                  ? "active"
-                  : ""
-                }`}
-              preload="auto"
+              src={getOptimizedCloudinaryVideoUrl(
+                slide.banner_video,
+              )}
+              className={`banner-video ${
+                isCurrent ? "active" : ""
+              }`}
+              preload={
+                isCurrent ? "auto" : "metadata"
+              }
               loop
               muted
               playsInline
+              aria-hidden="true"
             />
-          ),
-        )}
+          );
+        })}
       </div>
 
       <div className="banner-overlay" />
@@ -299,10 +370,7 @@ export default function BannerContainer() {
       <div className="banner-content-container">
         <div
           key={`text-${animKey}`}
-          className="
-            banner-text-section
-            banner-text-anim
-          "
+          className="banner-text-section banner-text-anim"
         >
           <h1 className="banner-title">
             {currentSlide.banner_title}
@@ -310,9 +378,7 @@ export default function BannerContainer() {
 
           <div className="banner-subtitle-wrapper">
             <div className="banner-subtitle">
-              {
-                currentSlide.banner_small_tag
-              }
+              {currentSlide.banner_small_tag}
             </div>
 
             <div className="banner-controls">
@@ -321,12 +387,14 @@ export default function BannerContainer() {
                 className="banner-nav-btn"
                 onClick={(e) => {
                   e.stopPropagation();
-
                   goToPrev();
                 }}
                 aria-label="Previous Slide"
               >
-                <svg viewBox="0 0 24 24">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
                   <path d="M15 18l-6-6 6-6" />
                 </svg>
               </button>
@@ -336,12 +404,14 @@ export default function BannerContainer() {
                 className="banner-nav-btn"
                 onClick={(e) => {
                   e.stopPropagation();
-
                   goToNext();
                 }}
                 aria-label="Next Slide"
               >
-                <svg viewBox="0 0 24 24">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
                   <path d="M9 18l6-6-6-6" />
                 </svg>
               </button>
@@ -352,36 +422,37 @@ export default function BannerContainer() {
         <div className="banner-image-section">
           <img
             key={`img-${animKey}`}
-            src={currentSlide.banner_image}
+            src={getOptimizedCloudinaryImageUrl(
+              currentSlide.banner_image,
+            )}
             alt={currentSlide.banner_title}
-            className="
-              banner-fg-image
-              anim-enter
-            "
+            className="banner-fg-image anim-enter"
+            loading={
+              currentIndex === 0 ? "eager" : "lazy"
+            }
+            fetchPriority={
+              currentIndex === 0 ? "high" : "auto"
+            }
+            decoding="async"
           />
         </div>
       </div>
 
       <div className="banner-progress-dots">
-        {banners.map(
-          (_, index) => (
-            <button
-              key={index}
-              type="button"
-              className={`banner-dot ${index === currentIndex
-                  ? "active"
-                  : ""
-                }`}
-              onClick={(e) => {
-                e.stopPropagation();
-
-                goToSlide(index);
-              }}
-              aria-label={`Go to slide ${index + 1
-                }`}
-            />
-          ),
-        )}
+        {banners.map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            className={`banner-dot ${
+              index === currentIndex ? "active" : ""
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              goToSlide(index);
+            }}
+            aria-label={`Go to slide ${index + 1}`}
+          />
+        ))}
       </div>
     </div>
   );
